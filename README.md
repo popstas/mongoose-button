@@ -13,4 +13,10 @@ mos wifi ssid pass
 mod config-set app.webhook=https://your-url
 # for mDash
 config-set dash.enable=true dash.token=your-token
+# for mqtt
+mos config-set mqtt.enable=true
+mos config-set mqtt.server=myserver
+mos config-set mqtt.user=myuser
+mos config-set mqtt.pas=mypass
+mos config-set app.mqtt_base=home/room
 ```

@@ -1,10 +1,22 @@
+load('api_arduino_bme280.js');
+load('api_arduino_ssd1306.js');
 load('api_config.js');
 load('api_esp8266.js');
 load('api_gpio.js');
+load('api_i2c.js');
 load('api_http.js');
-// load('api_mqtt.js');
+load('api_mqtt.js');
 // load('api_sys.js');
 load('api_timer.js');
+
+/* let rescuePin = 3; // D3;
+GPIO.set_mode(rescuePin, GPIO.MODE_INPUT);
+print('rescuePin: ');
+print(GPIO.read(rescuePin));
+if(GPIO.read(rescuePin)){
+  print('rescue pin enabled, aborting program!');
+  return false;
+} */
 
 let requestUrl = Cfg.get('app.webhook');
 
@@ -53,6 +65,71 @@ GPIO.set_button_handler(
   true
 );
 
+// let bus = I2C.get()
+
+let sens_addr = 0x76;
+// let sens_addr = 0x77;
+print('connect bme...');
+let bme;
+bme = Adafruit_BME280.createI2C(sens_addr);
+if (bme === undefined) {
+  print('Cant find a sensor');
+} else {
+  print('bme280 connected!');
+  Timer.set(
+    5000,
+    true,
+    function() {
+      let data = {
+        temperature: bme.readTemperature(),
+        humidity: bme.readHumidity(),
+        pressure: bme.readPressure()
+      };
+
+      print('bme280 temperature: ', data.temperature);
+      print('bme280 humidity: ', data.humidity);
+      print('bme280 pressure: ', data.pressure);
+
+      showStr(
+        d,
+        'tmp: ' +
+          JSON.stringify(Math.round(data.temperature)) +
+          '\nhum: ' +
+          JSON.stringify(Math.round(data.humidity)) +
+          '\nprs: ' +
+          JSON.stringify(Math.round(data.pressure))
+      );
+
+      let base = Cfg.get('app.mqtt_base');
+      MQTT.pub(base + '/temp', JSON.stringify(Math.round(data.temperature)));
+      MQTT.pub(base + '/hum', JSON.stringify(Math.round(data.humidity)));
+      MQTT.pub(base + '/press', JSON.stringify(Math.round(data.pressure)));
+    },
+    null
+  );
+}
+
+print('initialize display...');
+let d = Adafruit_SSD1306.create_i2c(4, Adafruit_SSD1306.RES_128_64);
+d.begin(Adafruit_SSD1306.SWITCHCAPVCC, 0x3c, true /* reset */);
+d.display();
+let i = 0;
+
+let showStr = function(d, str) {
+  d.clearDisplay();
+  d.setTextSize(2);
+  d.setTextColor(Adafruit_SSD1306.WHITE);
+  d.setCursor(0, 0);
+  d.write(str);
+  d.display();
+};
+
+/* Timer.set(1000, Timer.REPEAT, function() {
+  showStr(d, "i = " + JSON.stringify(i));
+  print("i = ", i);
+  i++;
+}, null); */
+
 // wifi connect event
 /* Event.addGroupHandler(
   Net.EVENT_GRP,
@@ -72,4 +149,5 @@ GPIO.set_button_handler(
     else print('failed mqtt');
     MQTT.setEventHandler(function(){}, null);
   }
-}, null); */
+}, null);
+ */
