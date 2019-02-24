@@ -20,3 +20,9 @@ mos config-set mqtt.user=myuser
 mos config-set mqtt.pas=mypass
 mos config-set app.mqtt_base=home/room
 ```
+
+## MQTT topics
+- `base/temp`
+- `base/hum`
+- `base/press`
+- `base/pir`

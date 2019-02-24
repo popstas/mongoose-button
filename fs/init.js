@@ -24,6 +24,7 @@ function blink(time) {
   GPIO.blink(Cfg.get('app.led_pin'), time, time);
 }
 
+// request to Cfg.get('app.webhook')
 function requestWebhook() {
   print('HTTP query to ' + requestUrl);
   blink(500);
@@ -48,25 +49,29 @@ function requestWebhook() {
   );
 }
 
+// mqtt test
+MQTT.setEventHandler(function(conn, ev, edata) {
+  if (ev !== 0) print('MQTT event handler: got', ev);
+}, null);
+
 GPIO.setup_output(Cfg.get('app.led_pin'), 1);
 
-if (!requestUrl) {
+// button webhook
+if (requestUrl) {
+  GPIO.set_button_handler(
+    Cfg.get('app.button_pin'),
+    GPIO.PULL_UP,
+    GPIO.INT_EDGE_NEG,
+    50,
+    requestWebhook,
+    true
+  );
+} else {
   print('No requestUrl defined! you should define it with mos config-set webhook=https://your-url');
   blink(250);
-  return false;
 }
 
-GPIO.set_button_handler(
-  Cfg.get('app.button_pin'),
-  GPIO.PULL_UP,
-  GPIO.INT_EDGE_NEG,
-  50,
-  requestWebhook,
-  true
-);
-
-// let bus = I2C.get()
-
+// BME280 sensor
 let sens_addr = 0x76;
 // let sens_addr = 0x77;
 print('connect bme...');
@@ -109,11 +114,28 @@ if (bme === undefined) {
   );
 }
 
+// PIR sensor
+GPIO.set_mode(Cfg.get('app.pir_pin'), GPIO.MODE_INPUT); // D8
+Timer.set(
+  1000,
+  true,
+  function() {
+    let pir = GPIO.read(Cfg.get('app.pir_pin'));
+
+    GPIO.write(Cfg.get('app.led_pin'), Math.abs(1 - pir));
+
+    let base = Cfg.get('app.mqtt_base');
+    print(base + '/pir ' + JSON.stringify(pir));
+    MQTT.pub(base + '/pir', JSON.stringify(pir));
+  },
+  null
+);
+
+// display
 print('initialize display...');
 let d = Adafruit_SSD1306.create_i2c(4, Adafruit_SSD1306.RES_128_64);
 d.begin(Adafruit_SSD1306.SWITCHCAPVCC, 0x3c, true /* reset */);
 d.display();
-let i = 0;
 
 let showStr = function(d, str) {
   d.clearDisplay();
@@ -123,12 +145,6 @@ let showStr = function(d, str) {
   d.write(str);
   d.display();
 };
-
-/* Timer.set(1000, Timer.REPEAT, function() {
-  showStr(d, "i = " + JSON.stringify(i));
-  print("i = ", i);
-  i++;
-}, null); */
 
 // wifi connect event
 /* Event.addGroupHandler(
