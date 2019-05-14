@@ -71,18 +71,25 @@ if (requestUrl) {
   blink(250);
 }
 
+let last = {
+  temp: "0",
+  hum: "0",
+  press: "0"
+};
+
 // BME280 sensor
 let sens_addr = 0x76;
 // let sens_addr = 0x77;
 print('connect bme...');
 let bme;
-bme = Adafruit_BME280.createI2C(sens_addr);
+bme = Adafruit_BME280.createI2C(sens_addr); 
 if (bme === undefined) {
   print('Cant find a sensor');
 } else {
   print('bme280 connected!');
+
   Timer.set(
-    5000,
+    1000,
     true,
     function() {
       let data = {
@@ -91,24 +98,41 @@ if (bme === undefined) {
         pressure: bme.readPressure()
       };
 
+      let current = {
+        temp: JSON.stringify(Math.round(data.temperature)),
+        hum: JSON.stringify(Math.round(data.humidity)),
+        press: JSON.stringify(Math.round(data.pressure))
+      };
+
+      // serial output
       print('bme280 temperature: ', data.temperature);
       print('bme280 humidity: ', data.humidity);
       print('bme280 pressure: ', data.pressure);
 
-      showStr(
+      // oled display
+      /* showStr(
         d,
         'tmp: ' +
-          JSON.stringify(Math.round(data.temperature)) +
+        current.temperature +
           '\nhum: ' +
-          JSON.stringify(Math.round(data.humidity)) +
+          current.humidity +
           '\nprs: ' +
-          JSON.stringify(Math.round(data.pressure))
-      );
+          current.pressure
+      ); */
 
       let base = Cfg.get('app.mqtt_base');
-      MQTT.pub(base + '/temp', JSON.stringify(Math.round(data.temperature)));
-      MQTT.pub(base + '/hum', JSON.stringify(Math.round(data.humidity)));
-      MQTT.pub(base + '/press', JSON.stringify(Math.round(data.pressure)));
+
+      // publish to mqtt metrics if changed
+      print('before');
+      let names = ['temp', 'hum', 'press'];
+      for(let i in names){
+        let m = names[i];
+        if(current[m] !== last[m]){
+          print('mqtt: ' + m + ': ' + current[m] + ', last: ' + last[m]);
+          MQTT.pub(base + '/' + m, current[m]);
+        }
+        last[m] = current[m];
+      }
     },
     null
   );
@@ -116,7 +140,7 @@ if (bme === undefined) {
 
 // PIR sensor
 GPIO.set_mode(Cfg.get('app.pir_pin'), GPIO.MODE_INPUT); // D8
-Timer.set(
+/* Timer.set(
   1000,
   true,
   function() {
@@ -129,7 +153,7 @@ Timer.set(
     MQTT.pub(base + '/pir', JSON.stringify(pir));
   },
   null
-);
+); */
 
 // display
 print('initialize display...');
