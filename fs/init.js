@@ -80,6 +80,7 @@ let last = {
   brightness: "0",
   lux: "0"
 };
+let iter = 0;
 
 // BME280 sensor
 let sens_addr = 0x76;
@@ -122,6 +123,9 @@ Timer.set(
   1000,
   true,
   function() {
+    iter++;
+    if(iter >= 60) iter = 0;
+
     let data = {
       temperature: bme.readTemperature(),
       humidity: bme.readHumidity(),
@@ -159,11 +163,11 @@ Timer.set(
 
     let base = Cfg.get('app.mqtt_base');
 
-    // publish to mqtt metrics if changed
+    // publish to mqtt metrics if changed or per minute
     let names = ['temp', 'hum', 'press', 'brightness', 'lux'];
     for(let i in names){
       let m = names[i];
-      if(current[m] !== last[m]){
+      if(current[m] !== last[m] || iter === 0){
         print('mqtt: ' + m + ': ' + current[m] + ', last: ' + last[m]);
         MQTT.pub(base + '/' + m, current[m]);
       }
